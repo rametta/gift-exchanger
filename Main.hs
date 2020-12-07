@@ -53,9 +53,10 @@ data Init = Init
 -- To be an eligible match, one must satisfy these 3 constraints
 -- 1. Must not be yourself
 -- 2. Must be in the same country
--- 3. Must not be the same person who got you
+-- 3. Must be in the same city
+-- 4. Must not be the same person who got you
 isEligibleMatch :: Map.Map String Match -> Participant -> Participant -> Bool
-isEligibleMatch ms g r = email g /= email r && country g == country r && not alreadyTogether
+isEligibleMatch ms g r = email g /= email r && country g == country r && city g == city r && not alreadyTogether
   where
     alreadyTogether = False <| (== email g) . email . receiver <$> Map.lookup (email r) ms
 
@@ -83,8 +84,8 @@ createMatches ps = matches . foldl match init $ ps
     init = Init ps Map.empty
 
 strToCountry :: Maybe String -> Country
-strToCountry (Just "canada") = Canada
-strToCountry (Just "usa") = USA
+strToCountry (Just "Canada") = Canada
+strToCountry (Just "US") = USA
 strToCountry (Just s) = Other s
 strToCountry Nothing = Other "-"
 
@@ -99,15 +100,15 @@ strToBool _ = False
 recordToParticipant :: Record -> Participant
 recordToParticipant record =
   Participant
-    { name = "-" <| record !!? 0,
+    { name = "-" <| record !!? 9,
       email = "-" <| record !!? 1,
-      country = strToCountry $ record !!? 2,
-      city = "-" <| record !!? 3,
-      address = record !!? 4 >>= strToMaybe,
-      giftCardsOk = maybe False strToBool $ record !!? 5,
-      foodOk = maybe False strToBool $ record !!? 6,
-      dietaryRestrictions = record !!? 7 >>= strToMaybe,
-      wishlist = record !!? 8 >>= strToMaybe
+      country = strToCountry $ record !!? 7,
+      city = "-" <| record !!? 8,
+      address = record !!? 2 >>= strToMaybe,
+      giftCardsOk = maybe False strToBool $ record !!? 3,
+      foodOk = maybe False strToBool $ record !!? 4,
+      dietaryRestrictions = record !!? 5 >>= strToMaybe,
+      wishlist = record !!? 6 >>= strToMaybe
     }
 
 csvToParticipants :: CSV -> [Participant]
@@ -156,7 +157,7 @@ testMatches :: Map.Map String Match -> [Participant] -> String
 testMatches ms =
   List.concatMap ((++ ", ") . show) . notValid . verifications
   where
-    verifications = List.map (\p -> NoMatch (email p) <| isValidMatch ms <$> Map.lookup (email p) ms)
+    verifications = List.map (\p -> NoMatch (email p ++ name p) <| isValidMatch ms <$> Map.lookup (email p) ms)
     notValid = List.filter (/= Valid)
 
 main :: IO ()
